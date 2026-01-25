@@ -150,10 +150,5 @@ def main():
         print("Quiet hours active, skipping alert")
         return
 
-    # Optional: Normal alert logic here if you want
-    if score > 200:
-        body = format_email_body(score, temp, wind_speed, humidity, precip_in, lat, lon)
-        send_email(f"Weather Intensity Moderate (Score {score})", body)
-
 if __name__ == "__main__":
     main()
