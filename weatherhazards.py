@@ -87,7 +87,7 @@ def main():
 
     # ---------- CUSTOM ALERTS ----------
     # 1️⃣ Hurricane Watch at 6:20 PM today
-    watch_time = now_cst.replace(hour=18, minute=20, second=0, microsecond=0)
+    watch_time = now_cst.replace(hour=18, minute=30, second=0, microsecond=0)
     watch_key = f"hurricane_watch_{watch_time.date()}"
     if now_cst >= watch_time and watch_key not in sent_alerts:
         if not quiet:
