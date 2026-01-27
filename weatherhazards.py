@@ -124,7 +124,7 @@ def main():
     # ---------- NEW HIGH WIND ALERTS ------------
     # High Wind Watch for SD/ND/MN at 8:25 PM on 1/26/2026
     if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 26:
-        if now_cst.hour == 20 and now_cst.minute == 25:
+        if now_cst.hour == 20 and now_cst.minute == 30:
             send_email(
                 f"⚠ High Wind Watch for South dakota & North dakota & Minnesota",
                     format_alert_email("High Wind Watch", st, now_cst)
