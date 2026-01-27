@@ -1,5 +1,5 @@
 import requests
-from bs4 import BeautifulSoup
+import re
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 import smtplib
@@ -21,14 +21,12 @@ WEBSITE_URL = "https://jace200677.github.io/weather-map-playschool/mywebsite.htm
 def is_quiet_hours(now):
     weekday = now.weekday()  # Monday=0, Sunday=6
     current_time = now.time()
-
     if weekday < 5:  # Mon–Fri
         start = time(20, 0)
         end = time(6, 0)
     else:  # Weekend
         start = time(20, 0)
         end = time(8, 0)
-
     if start < end:
         return start <= current_time < end
     else:
@@ -60,18 +58,17 @@ def format_custom_alert_email(event_name, state, alert_time):
         f"Source: {WEBSITE_URL}"
     )
 
-# ---------------- FETCH WEATHER SCORE ----------------
+# ---------------- FETCH WEATHER SCORE WITHOUT BS ----------------
 def fetch_weather_score():
     try:
         res = requests.get(WEBSITE_URL, timeout=10)
         html = res.text
-        soup = BeautifulSoup(html, 'html.parser')
-        score_span = soup.find(id="weather-score")
-        if score_span:
-            score = int(score_span.text.strip())
-            return score
+        # Look for <div id="score">NUMBER</div>
+        match = re.search(r'id="score">(\d+)<', html)
+        if match:
+            return int(match.group(1))
         else:
-            print("Could not find #weather-score on page")
+            print("Could not find #score in page")
             return None
     except Exception as e:
         print(f"Error fetching website: {e}")
@@ -82,12 +79,11 @@ def main():
     now_cst = datetime.now(ZoneInfo("America/Chicago"))
     quiet = is_quiet_hours(now_cst)
 
-    # Track alerts sent in this run (in-memory only)
     sent_alerts = set()
 
     # ---------- CUSTOM ALERTS ----------
-    # 1️⃣ Hurricane Watch at 6:20 PM today
-    watch_time = now_cst.replace(hour=18, minute=30, second=0, microsecond=0)
+    # Hurricane Watch at 6:30 PM today
+    watch_time = now_cst.replace(hour=18, minute=51, second=0, microsecond=0)
     watch_key = f"hurricane_watch_{watch_time.date()}"
     if now_cst >= watch_time and watch_key not in sent_alerts:
         if not quiet:
@@ -97,7 +93,7 @@ def main():
             )
         sent_alerts.add(watch_key)
 
-    # 2️⃣ Hurricane Warning at 10:05 AM tomorrow
+    # Hurricane Warning at 10:05 AM tomorrow
     tomorrow = now_cst + timedelta(days=1)
     warning_time = tomorrow.replace(hour=10, minute=5, second=0, microsecond=0)
     warning_key = f"hurricane_warning_{warning_time.date()}"
