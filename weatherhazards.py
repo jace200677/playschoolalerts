@@ -17,21 +17,6 @@ SMTP_PASSWORD = "yimn jlao kzli bctp"  # Gmail App Password
 WEATHER_SCORE_THRESHOLD = 450
 WEBSITE_URL = "https://jace200677.github.io/weather-map-playschool/mywebsite.html"
 
-# ---------------- QUIET HOURS ----------------
-def is_quiet_hours(now):
-    weekday = now.weekday()  # Monday=0, Sunday=6
-    current_time = now.time()
-    if weekday < 5:  # Mon–Fri
-        start = time(20, 0)
-        end = time(6, 0)
-    else:  # Weekend
-        start = time(20, 0)
-        end = time(8, 0)
-    if start < end:
-        return start <= current_time < end
-    else:
-        return current_time >= start or current_time < end
-
 # ---------------- EMAIL ----------------
 def send_email(subject, body):
     try:
@@ -58,12 +43,11 @@ def format_custom_alert_email(event_name, state, alert_time):
         f"Source: {WEBSITE_URL}"
     )
 
-# ---------------- FETCH WEATHER SCORE WITHOUT BS ----------------
+# ---------------- FETCH WEATHER SCORE ----------------
 def fetch_weather_score():
     try:
         res = requests.get(WEBSITE_URL, timeout=10)
         html = res.text
-        # Look for <div id="score">NUMBER</div>
         match = re.search(r'id="score">(\d+)<', html)
         if match:
             return int(match.group(1))
@@ -77,46 +61,36 @@ def fetch_weather_score():
 # ---------------- MAIN ----------------
 def main():
     now_cst = datetime.now(ZoneInfo("America/Chicago"))
-    quiet = is_quiet_hours(now_cst)
-
     sent_alerts = set()
 
     # ---------- CUSTOM ALERTS ----------
-    # Hurricane Watch at 6:30 PM today
-    watch_time = now_cst.replace(hour=18, minute=51, second=0, microsecond=0)
-    watch_key = f"hurricane_watch_{watch_time.date()}"
-    if now_cst >= watch_time and watch_key not in sent_alerts:
-        if not quiet:
+    # 1️⃣ Hurricane Watch at 6:51 PM today
+    today_watch = now_cst.replace(hour=18, minute=51, second=0, microsecond=0)
+    if now_cst.year == today_watch.year and now_cst.month == today_watch.month and now_cst.day == today_watch.day:
+        if now_cst.hour == 18 and now_cst.minute == 51:
             send_email(
                 f"⚠ Hurricane Watch for Oregon & Washington",
                 format_custom_alert_email("Hurricane Watch", "Oregon & Washington", now_cst)
             )
-        sent_alerts.add(watch_key)
 
-    # Hurricane Warning at 10:05 AM tomorrow
-    tomorrow = now_cst + timedelta(days=1)
-    warning_time = tomorrow.replace(hour=10, minute=5, second=0, microsecond=0)
-    warning_key = f"hurricane_warning_{warning_time.date()}"
-    if now_cst >= warning_time and warning_key not in sent_alerts:
-        if not quiet:
+    # 2️⃣ Hurricane Warning at 10:05 AM on 1/27/2026
+    warning_time = datetime(2026, 1, 27, 10, 5, 0, tzinfo=ZoneInfo("America/Chicago"))
+    if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 27:
+        if now_cst.hour == 10 and now_cst.minute == 5:
             send_email(
                 f"⚠ Hurricane Warning for Oregon & Washington",
                 format_custom_alert_email("Hurricane Warning", "Oregon & Washington", now_cst)
             )
-        sent_alerts.add(warning_key)
 
     # ---------- REGULAR WEATHER SCORE ALERT ----------
     score = fetch_weather_score()
-    if score is None:
-        print("No weather score found")
-        return
-
-    print(f"Weather Score: {score}/500")
-    if score >= WEATHER_SCORE_THRESHOLD and not quiet:
-        send_email(
-            f"⚠ High Weather Intensity (Score {score})",
-            f"Weather Score: {score}/500\nTime: {now_cst.strftime('%Y-%m-%d %H:%M:%S CST')}\nSource: {WEBSITE_URL}"
-        )
+    if score is not None:
+        print(f"Weather Score: {score}/500")
+        if score >= WEATHER_SCORE_THRESHOLD:
+            send_email(
+                f"⚠ High Weather Intensity (Score {score})",
+                f"Weather Score: {score}/500\nTime: {now_cst.strftime('%Y-%m-%d %H:%M:%S CST')}\nSource: {WEBSITE_URL}"
+            )
 
 if __name__ == "__main__":
     main()
