@@ -2,4 +2,3 @@
 Flask
 tzdata
 pytz
-BeautifulSoup
