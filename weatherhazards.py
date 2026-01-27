@@ -1,6 +1,5 @@
 import requests
-import re
-from datetime import datetime, time, timedelta
+from datetime import datetime
 from zoneinfo import ZoneInfo
 import smtplib
 from email.mime.text import MIMEText
@@ -12,10 +11,23 @@ EMAIL_TO = "jacebfink@icloud.com"
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 SMTP_USER = "jacefink2@gmail.com"
-SMTP_PASSWORD = "yimn jlao kzli bctp"  # Gmail App Password
+SMTP_PASSWORD = "yimn jlao kzli bctp"
 
 WEATHER_SCORE_THRESHOLD = 450
-WEBSITE_URL = "https://jace200677.github.io/weather-map-playschool/mywebsite.html"
+NWS_API_URL = "https://api.weather.gov/alerts/active?area="
+
+STATE_POPULATION = {
+    "Oregon": 4200000,
+    "Washington": 7700000,
+}
+
+SEVERITY_WEIGHT = {
+    "Extreme": 5,
+    "Severe": 4,
+    "Moderate": 3,
+    "Minor": 2,
+    "Unknown": 1,
+}
 
 # ---------------- EMAIL ----------------
 def send_email(subject, body):
@@ -35,62 +47,113 @@ def send_email(subject, body):
     except Exception as e:
         print(f"Error sending email: {e}")
 
-def format_custom_alert_email(event_name, state, alert_time):
-    return (
+def format_alert_email(event_name, state, alert_time, score=None, extra=""):
+    text = (
         f"⚠ {event_name} Alert!\n\n"
         f"Location: {state}\n"
         f"Time: {alert_time.strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
-        f"Source: {WEBSITE_URL}"
     )
+    if score is not None:
+        text += f"Weather Score: {score}/500\n"
+    if extra:
+        text += f"{extra}\n"
+    return text
 
-# ---------------- FETCH WEATHER SCORE ----------------
-def fetch_weather_score():
+# ---------------- FETCH NWS ALERTS ----------------
+def fetch_nws_alerts(state):
     try:
-        res = requests.get(WEBSITE_URL, timeout=10)
-        html = res.text
-        match = re.search(r'id="score">(\d+)<', html)
-        if match:
-            return int(match.group(1))
-        else:
-            print("Could not find #score in page")
-            return None
+        res = requests.get(f"{NWS_API_URL}{state}", timeout=10)
+        res.raise_for_status()
+        data = res.json()
+        alerts = []
+
+        for feature in data.get("features", []):
+            props = feature.get("properties", {})
+            alert = {
+                "event": props.get("event"),
+                "severity": props.get("severity", "Unknown"),
+                "sent": datetime.fromisoformat(props.get("sent").replace("Z", "+00:00")),
+                "state": state
+            }
+            alerts.append(alert)
+        return alerts
     except Exception as e:
-        print(f"Error fetching website: {e}")
-        return None
+        print(f"Error fetching NWS alerts for {state}: {e}")
+        return []
+
+# ---------------- CALCULATE WEATHER SCORE ----------------
+def calculate_weather_score(alerts):
+    now = datetime.now(ZoneInfo("America/Chicago"))
+
+    # Fixed full score window: 10:00–10:03 AM on 1/27/2026
+    fixed_start = datetime(2026, 1, 27, 10, 0, 0, tzinfo=ZoneInfo("America/Chicago"))
+    fixed_end   = datetime(2026, 1, 27, 10, 3, 0, tzinfo=ZoneInfo("America/Chicago"))
+
+    if fixed_start <= now <= fixed_end:
+        return 500  # max score during the special window
+
+    # Otherwise calculate dynamically
+    total_score = 0
+    for alert in alerts:
+        severity = alert["severity"]
+        weight = SEVERITY_WEIGHT.get(severity, 1)
+        state_pop = STATE_POPULATION.get(alert["state"], 1000000)
+        pop_factor = min(state_pop / 1000000, 10)
+
+        age_minutes = (now - alert["sent"]).total_seconds() / 60
+        decay = max(0, 60 - age_minutes) / 60
+
+        alert_score = weight * pop_factor * decay
+        total_score += alert_score
+
+    return min(int(total_score * 10), 500)
 
 # ---------------- MAIN ----------------
 def main():
     now_cst = datetime.now(ZoneInfo("America/Chicago"))
-    sent_alerts = set()
 
     # ---------- CUSTOM ALERTS ----------
-    # 1️⃣ Hurricane Watch at 6:51 PM today
+    # Hurricane Watch: 6:51 PM today
     today_watch = now_cst.replace(hour=18, minute=51, second=0, microsecond=0)
-    if now_cst.year == today_watch.year and now_cst.month == today_watch.month and now_cst.day == today_watch.day:
-        if now_cst.hour == 18 and now_cst.minute == 51:
-            send_email(
-                f"⚠ Hurricane Watch for Oregon & Washington",
-                format_custom_alert_email("Hurricane Watch", "Oregon & Washington", now_cst)
-            )
+    if now_cst.date() == today_watch.date() and now_cst.hour == 18 and now_cst.minute == 51:
+        send_email(
+            "⚠ Hurricane Watch for Oregon & Washington",
+            format_alert_email("Hurricane Watch", "Oregon & Washington", now_cst)
+        )
 
-    # 2️⃣ Hurricane Warning at 10:05 AM on 1/27/2026
+    # Hurricane Warning: 10:05 AM on 1/27/2026
     warning_time = datetime(2026, 1, 27, 10, 5, 0, tzinfo=ZoneInfo("America/Chicago"))
     if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 27:
         if now_cst.hour == 10 and now_cst.minute == 5:
             send_email(
-                f"⚠ Hurricane Warning for Oregon & Washington",
-                format_custom_alert_email("Hurricane Warning", "Oregon & Washington", now_cst)
+                "⚠ Hurricane Warning for Oregon & Washington",
+                format_alert_email("Hurricane Warning", "Oregon & Washington", now_cst)
             )
 
-    # ---------- REGULAR WEATHER SCORE ALERT ----------
-    score = fetch_weather_score()
-    if score is not None:
-        print(f"Weather Score: {score}/500")
-        if score >= WEATHER_SCORE_THRESHOLD:
-            send_email(
-                f"⚠ High Weather Intensity (Score {score})",
-                f"Weather Score: {score}/500\nTime: {now_cst.strftime('%Y-%m-%d %H:%M:%S CST')}\nSource: {WEBSITE_URL}"
-            )
+    # ---------- DYNAMIC NWS ALERTS ----------
+    all_alerts = []
+    for state in ["Oregon", "Washington"]:
+        all_alerts.extend(fetch_nws_alerts(state))
+
+    weather_score = calculate_weather_score(all_alerts)
+    print(f"Weather Score: {weather_score}/500")
+
+    # High intensity email
+    if weather_score >= WEATHER_SCORE_THRESHOLD:
+        send_email(
+            f"⚠ High Weather Intensity (Score {weather_score})",
+            format_alert_email("Multiple NWS Alerts", "Oregon & Washington", now_cst, weather_score)
+        )
+
+    # Extreme Wind Warning at 12:30 PM on 1/27/2026
+    if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 27:
+        if now_cst.hour == 12 and now_cst.minute == 30:
+            for alert in all_alerts:
+                if alert["event"] == "Extreme Wind" and alert["state"] in ["Oregon", "Washington"]:
+                    send_email(
+                        f"⚠ Extreme Wind Warning ({alert['state']})",
+                        format_alert_email(alert["event"], alert["state"], now_cst, weather_score)
+                    )
 
 if __name__ == "__main__":
     main()
