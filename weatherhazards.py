@@ -127,7 +127,7 @@ def main():
         if now_cst.hour == 20 and now_cst.minute == 30:
             send_email(
                 f"⚠ High Wind Watch for South dakota & North dakota & Minnesota",
-                    format_alert_email("High Wind Watch", st, now_cst)
+                    format_alert_email("High Wind Watch", "South dakota & North dakota & Minnesota", now_cst)
             )
 
     # High Wind Warning for SD/ND/MN at 10:25 AM on 1/27/2026
@@ -135,7 +135,7 @@ def main():
         if now_cst.hour == 10 and now_cst.minute == 25:
             send_email(
                 f"⚠ High Wind Warning for South dakota & North dakota & Minnesota",
-                    format_alert_email("High Wind Warning", st, now_cst)
+                    format_alert_email("High Wind Warning", "South dakota & North dakota & Minnesota", now_cst)
             )
 
     # ---------- DYNAMIC NWS ALERTS ----------
