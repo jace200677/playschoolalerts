@@ -19,6 +19,9 @@ NWS_API_URL = "https://api.weather.gov/alerts/active?area="
 STATE_POPULATION = {
     "Oregon": 4200000,
     "Washington": 7700000,
+    "South Dakota": 900000,
+    "North Dakota": 780000,
+    "Minnesota": 5700000,
 }
 
 SEVERITY_WEIGHT = {
@@ -47,17 +50,13 @@ def send_email(subject, body):
     except Exception as e:
         print(f"Error sending email: {e}")
 
-def format_alert_email(event_name, state, alert_time, score=None, extra=""):
-    text = (
+def format_alert_email(event_name, state, alert_time, extra=""):
+    return (
         f"⚠ {event_name} Alert!\n\n"
         f"Location: {state}\n"
         f"Time: {alert_time.strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
+        f"{extra}"
     )
-    if score is not None:
-        text += f"Weather Score: {score}/500\n"
-    if extra:
-        text += f"{extra}\n"
-    return text
 
 # ---------------- FETCH NWS ALERTS ----------------
 def fetch_nws_alerts(state):
@@ -85,44 +84,36 @@ def fetch_nws_alerts(state):
 def calculate_weather_score(alerts):
     now = datetime.now(ZoneInfo("America/Chicago"))
 
-    # Fixed full score window: 10:00–10:03 AM on 1/27/2026
-    fixed_start = datetime(2026, 1, 27, 10, 0, 0, tzinfo=ZoneInfo("America/Chicago"))
-    fixed_end   = datetime(2026, 1, 27, 10, 3, 0, tzinfo=ZoneInfo("America/Chicago"))
+    # ---------- FIXED WEATHER SCORE WINDOW ----------
+    if now.year == 2026 and now.month == 1 and now.day == 27:
+        if now.hour == 10 and 0 <= now.minute <= 3:
+            return 500  # fixed max score during this window
 
-    if fixed_start <= now <= fixed_end:
-        return 500  # max score during the special window
-
-    # Otherwise calculate dynamically
+    # ---------- DYNAMIC CALCULATION ----------
     total_score = 0
     for alert in alerts:
-        severity = alert["severity"]
-        weight = SEVERITY_WEIGHT.get(severity, 1)
-        state_pop = STATE_POPULATION.get(alert["state"], 1000000)
-        pop_factor = min(state_pop / 1000000, 10)
+        weight = SEVERITY_WEIGHT.get(alert.get("severity", "Unknown"), 1)
+        pop_factor = min(STATE_POPULATION.get(alert.get("state", ""), 1000000) / 1000000, 10)
 
-        age_minutes = (now - alert["sent"]).total_seconds() / 60
+        age_minutes = (now - alert.get("sent", now)).total_seconds() / 60
         decay = max(0, 60 - age_minutes) / 60
 
-        alert_score = weight * pop_factor * decay
-        total_score += alert_score
+        total_score += weight * pop_factor * decay
 
     return min(int(total_score * 10), 500)
-
 # ---------------- MAIN ----------------
 def main():
     now_cst = datetime.now(ZoneInfo("America/Chicago"))
 
     # ---------- CUSTOM ALERTS ----------
-    # Hurricane Watch: 6:51 PM today
-    today_watch = now_cst.replace(hour=18, minute=51, second=0, microsecond=0)
-    if now_cst.date() == today_watch.date() and now_cst.hour == 18 and now_cst.minute == 51:
+    # Hurricane Watch at 6:51 PM today
+    if now_cst.hour == 18 and now_cst.minute == 51:
         send_email(
             "⚠ Hurricane Watch for Oregon & Washington",
             format_alert_email("Hurricane Watch", "Oregon & Washington", now_cst)
         )
 
-    # Hurricane Warning: 10:05 AM on 1/27/2026
-    warning_time = datetime(2026, 1, 27, 10, 5, 0, tzinfo=ZoneInfo("America/Chicago"))
+    # Hurricane Warning at 10:05 AM on 1/27/2026
     if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 27:
         if now_cst.hour == 10 and now_cst.minute == 5:
             send_email(
@@ -130,29 +121,45 @@ def main():
                 format_alert_email("Hurricane Warning", "Oregon & Washington", now_cst)
             )
 
+    # ---------- NEW HIGH WIND ALERTS ------------
+    # High Wind Watch for SD/ND/MN at 8:25 PM on 1/26/2026
+    if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 26:
+        if now_cst.hour == 20 and now_cst.minute == 25:
+            send_email(
+                f"⚠ High Wind Watch for South dakota & North dakota & Minnesota",
+                    format_alert_email("High Wind Watch", st, now_cst)
+            )
+
+    # High Wind Warning for SD/ND/MN at 10:25 AM on 1/27/2026
+    if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 27:
+        if now_cst.hour == 10 and now_cst.minute == 25:
+            send_email(
+                f"⚠ High Wind Warning for South dakota & North dakota & Minnesota",
+                    format_alert_email("High Wind Warning", st, now_cst)
+            )
+
     # ---------- DYNAMIC NWS ALERTS ----------
     all_alerts = []
-    for state in ["Oregon", "Washington"]:
+    for state in ["Oregon", "Washington", "South Dakota", "North Dakota", "Minnesota"]:
         all_alerts.extend(fetch_nws_alerts(state))
 
     weather_score = calculate_weather_score(all_alerts)
     print(f"Weather Score: {weather_score}/500")
 
-    # High intensity email
     if weather_score >= WEATHER_SCORE_THRESHOLD:
         send_email(
             f"⚠ High Weather Intensity (Score {weather_score})",
-            format_alert_email("Multiple NWS Alerts", "Oregon & Washington", now_cst, weather_score)
+            format_alert_email("Multiple NWS Alerts", "Multi-State", now_cst)
         )
 
     # Extreme Wind Warning at 12:30 PM on 1/27/2026
     if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 27:
         if now_cst.hour == 12 and now_cst.minute == 30:
             for alert in all_alerts:
-                if alert["event"] == "Extreme Wind" and alert["state"] in ["Oregon", "Washington"]:
+                if alert["event"] == "Extreme Wind":
                     send_email(
                         f"⚠ Extreme Wind Warning ({alert['state']})",
-                        format_alert_email(alert["event"], alert["state"], now_cst, weather_score)
+                        format_alert_email("Extreme Wind Warning", alert["state"], now_cst)
                     )
 
 if __name__ == "__main__":
