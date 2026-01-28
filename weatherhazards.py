@@ -85,7 +85,7 @@ def calculate_weather_score(alerts):
     now = datetime.now(ZoneInfo("America/Chicago"))
 
     # ---------- FIXED WEATHER SCORE WINDOW ----------
-    if now.year == 2026 and now.month == 1 and now.day == 27:
+    if now.year == 2026 and now.month == 1 and now.day == 28:
         if now.hour == 10 and 0 <= now.minute <= 3:
             return 500  # fixed max score during this window
 
