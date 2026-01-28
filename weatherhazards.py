@@ -107,14 +107,16 @@ def main():
 
     # ---------- CUSTOM ALERTS ----------
     # Hurricane Watch at 6:51 PM today
-    if now_cst.hour == 18 and now_cst.minute == 51:
-        send_email(
-            "⚠ Hurricane Watch for Oregon & Washington",
-            format_alert_email("Hurricane Watch", "Oregon & Washington", now_cst)
-        )
+    if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 27:
+        if now_cst.hour == 21 and now_cst.minute == 0:
+            n
+            send_email(
+                "⚠ Hurricane Watch for Oregon & Washington",
+                format_alert_email("Hurricane Watch", "Oregon & Washington", now_cst)
+            )
 
     # Hurricane Warning at 10:05 AM on 1/27/2026
-    if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 27:
+    if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 28:
         if now_cst.hour == 10 and now_cst.minute == 5:
             send_email(
                 "⚠ Hurricane Warning for Oregon & Washington",
@@ -123,15 +125,15 @@ def main():
 
     # ---------- NEW HIGH WIND ALERTS ------------
     # High Wind Watch for SD/ND/MN at 8:25 PM on 1/26/2026
-    if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 26:
-        if now_cst.hour == 20 and now_cst.minute == 45:
+    if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 27:
+        if now_cst.hour == 21 and now_cst.minute == 5:
             send_email(
                 f"⚠ High Wind Watch for South dakota & North dakota & Minnesota",
                     format_alert_email("High Wind Watch", "South dakota & North dakota & Minnesota", now_cst)
             )
 
     # High Wind Warning for SD/ND/MN at 10:25 AM on 1/27/2026
-    if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 27:
+    if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 28:
         if now_cst.hour == 10 and now_cst.minute == 25:
             send_email(
                 f"⚠ High Wind Warning for South dakota & North dakota & Minnesota",
@@ -153,13 +155,13 @@ def main():
         )
 
     # Extreme Wind Warning at 12:30 PM on 1/27/2026
-    if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 27:
+    if now_cst.year == 2026 and now_cst.month == 1 and now_cst.day == 28:
         if now_cst.hour == 12 and now_cst.minute == 30:
             for alert in all_alerts:
                 if alert["event"] == "Extreme Wind":
                     send_email(
-                        f"⚠ Extreme Wind Warning ({alert['state']})",
-                        format_alert_email("Extreme Wind Warning", alert["state"], now_cst)
+                        f"⚠ Extreme Wind Warning for Oregon & Washington)",
+                        format_alert_email("Extreme Wind Warning", "Oregon & Washington", now_cst)
                     )
 
 if __name__ == "__main__":
