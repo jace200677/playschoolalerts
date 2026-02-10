@@ -148,19 +148,19 @@ def main():
     weather_score = calculate_weather_score(all_alerts)
     print(f"Weather Score: {weather_score}/500")
     if now_cst.year == 2026 and now_cst.month == 2 and now_cst.day == 10:
-        if now_cst.hour == 12:
+        if now_cst.hour == 12 and now_cst.minute < 59:
             send_email(
                 f"⚠ High Wind Warning for South dakota & North dakota & Minnesota",
                     format_alert_email("High Wind Warning", "South dakota & North dakota & Minnesota", now_cst)
             )
     if now_cst.year == 2026 and now_cst.month == 2 and now_cst.day == 10:
-        if now_cst.hour == 10:
+        if now_cst.hour == 10 and now_cst.minute < 11:
             send_email(
                 f"⚠ High Wind Warning for South dakota & North dakota & Minnesota",
                     format_alert_email("High Wind Warning", "South dakota & North dakota & Minnesota", now_cst)
             )
     if now_cst.year == 2026 and now_cst.month == 2 and now_cst.day == 10:
-        if now_cst.hour == 8:
+        if now_cst.hour == 8 and now_cst.minute < 11:
             send_email(
                 f"⚠ High Wind Warning for South dakota & North dakota & Minnesota",
                     format_alert_email("High Wind Warning", "South dakota & North dakota & Minnesota", now_cst)
